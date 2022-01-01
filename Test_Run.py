@@ -2,6 +2,8 @@ import discord
 import openpyxl
 import datetime
 import random
+import os
+from dotenv import load_dotenv
 
 client = discord.Client()
 
@@ -53,5 +55,7 @@ async def on_message(message):
                     await message.channel.send(f'Due: {cell_value.value.strip()}')
         await message.channel.send(random.choice(encouragements))
 
-
-client.run("OTI2NjU4NTM4NDcyODk4NjUw.Yc-4BA.z2nuqeDzh7TerQp0MNx6VZoIJ80")
+load_dotenv()
+TOKEN = os.getenv('DISCORD_TOKEN')
+client.run(TOKEN)
+# client.run("OTI2NjU4NTM4NDcyODk4NjUw.Yc-4BA.z2nuqeDzh7TerQp0MNx6VZoIJ80")
