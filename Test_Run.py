@@ -36,43 +36,73 @@ async def on_ready():
 
 # Messageable.send has to be awaited while using discord
 # function has to be asynchronous to use await
-async def date_comparison(message):
-    for rows in range(2, sheet.max_row + 1):
-        # just reading the date here
-        for columns in range(4, 5):
-            print((sheet.cell(rows, 4).value[1:3]))
-            cell_value = sheet.cell(row=rows, column=columns)
-            # iteration starts at 1 with openpyxl, we are comparing the same indices(month)
-            # if due-month > current month or due-day > current-day given the same month
-            if int(cell_value.value[1:3]) > int(printable_date[0:2]) or int(cell_value.value[1:3]) == \
-                    int(printable_date[0:2] and int(cell_value.value[4:6]) > int(printable_date[3:5])):
-                await message.channel.send(f"{sheet.cell(rows, 1).value} {sheet.cell(rows, 2).value} "
-                                           f"{sheet.cell(rows, 3).value}  Difficulty: {sheet.cell(rows, 5).value}")
-                # excel auto formats to non-numerical date without 1 space, so I'm stripping the space
-                # could git rid of the strip() if someone knows how to properly format excel dates without auto-conversion
-                await message.channel.send(f'Due: {cell_value.value.strip()}')
+async def date_comparison(rows):
+    """
+    Compares the current date with the assignmnent due date, and checks whether the date has passed already
+    *** I realized that this might be redundant with date_limitation ***
+    :return:
+    """
+    # iteration starts at 1 with openpyxl, we are comparing the same indices(month)
+    # if due-month > current month or due-day > current-day given the same month
+    return int(sheet.cell(rows, 4).value[1:3]) > int(printable_date[0:2]) or int(sheet.cell(rows, 4).value[1:3]) \
+           == int(printable_date[0:2] and int(sheet.cell(rows, 4).value[4:6]) > int(printable_date[3:5]))
+
+
+async def date_limitation(rows):
+    """
+    checks to see if the assignment due dates fall within a certain, specified range
+
+    :return:
+    """
+    # the number after the <= comparitor is within how many days you want to inform the user of due dates
+    return (((int(sheet.cell(rows, 4).value[1:3]) - int(printable_date[0:2])) * 30) +
+            (int(sheet.cell(rows, 4).value[4:6]) - int(printable_date[3:5]))) <= 10
+
+
+async def convert_to_panda_tables(rows, message):
+    """
+    Converts excel sheets into panda tables
+
+    :return:
+    """
+    # create dictionary of relevant values to use for dataframe
+    course_details = ({
+        "Name": [sheet.cell(rows, 1).value],
+        "#": [sheet.cell(rows, 2).value],
+        "Assignment": [sheet.cell(rows, 3).value],
+        "Difficulty": [sheet.cell(rows, 5).value],
+    })
+    # initialize dataframe to use with pandas to create a table
+    # all the keys are scalar values, so we must start with an index. Tried to use something non-intrusive
+    dataframe = pd.DataFrame(course_details, columns=["Name", "#", "Assignment", "Difficulty"], index=["course"])
+    # this is for discord formatting, as otherwise the spacing is off after conversion. Ticks don't
+    # look the best, but I'm not sure what else to use
+    await message.channel.send('\```' + dataframe.to_string() + '')
+    # excel auto formats to non-numerical date without 1 space, so I'm stripping the space
+    # could git rid of the strip() if someone knows how to properly format excel dates without auto-conversion
+    await message.channel.send(f'Due: {sheet.cell(rows, 4).value.strip()}')
 
 
 @client.event
 async def on_message(message):
+    """
+    When a user enters a message, check to see if they are calling the bot using a key word, and if so, print out
+    the relevant information
+
+    :param message:
+    :return:
+    """
     # # what does this do? is it necessary?
     # if message.author == client.user:
     #     return
     if message.content.lower() == "deadlines" or message.content.lower() == "due".lower():
-        await date_comparison(message)
-        # for rows in range(2, sheet.max_row + 1):
-        #     # just reading the date here
-        #     for columns in range(4, 5):
-        #         cell_value = sheet.cell(row=rows, column=columns)
-        #         # iteration starts at 1 with openpyxl, we are comparing the same indices(month)
-        #         # if due-month > current month or due-day > current-day given the same month
-        #         if int(cell_value.value[1:3]) > int(printable_date[0:2]) or int(cell_value.value[1:3]) == \
-        #                 int(printable_date[0:2] and int(cell_value.value[4:6]) > int(printable_date[3:5])):
-        #             await message.channel.send(f"{sheet.cell(rows, 1).value} {sheet.cell(rows, 2).value} "
-        #                                        f"{sheet.cell(rows, 3).value}  Difficulty: {sheet.cell(rows, 5).value}")
-        #             # excel auto formats to non-numerical date without 1 space, so I'm stripping the space
-        #             # could git rid of the strip() if someone knows how to properly format excel dates without auto-conversion
-        #             await message.channel.send(f'Due: {cell_value.value.strip()}')
+        # await date_comparison(message)
+        for rows in range(2, sheet.max_row + 1):
+            # just reading the date here
+            for columns in range(4, 5):
+                if await date_comparison(rows):
+                    if await date_limitation(rows):
+                        await convert_to_panda_tables(rows, message)
         await message.channel.send(random.choice(encouragements))
 
     # AttributeError: 'builtin_function_or_method' object has no attribute 'lower'
@@ -82,31 +112,13 @@ async def on_message(message):
             for columns in range(2, 3):
                 cell_value = sheet.cell(row=rows, column=columns)
                 if str(cell_value.value) == (message.content[10:]):
-                    # this is a datechecker again, can probably be universally broken down into a helper somehow
-                    if int(sheet.cell(rows, 4).value[1:3]) > int(printable_date[0:2]) or \
-                            int(sheet.cell(rows, 4).value[1:3]) == int(printable_date[0:2]) and \
-                            int(sheet.cell(rows, 4).value[4:6]) > int(printable_date[3:5]):
-                        # await message.channel.send(f"{sheet.cell(rows, 1).value} {sheet.cell(rows, 2).value} "
-                        #                            f"{sheet.cell(rows, 3).value}  Difficulty: {sheet.cell(rows, 5).value}")
-                        # await message.channel.send(f'Due: {sheet.cell(rows, 4).value.strip()}')
-                        # create dictionary of relevant values to use for dataframe
-                        course_details = ({
-                            "Name": [sheet.cell(rows, 1).value],
-                            "#": [sheet.cell(rows, 2).value],
-                            "Assignment": [sheet.cell(rows, 3).value],
-                            "Difficulty": [sheet.cell(rows, 5).value],
-                        })
-                        # initialize dataframe to use with pandas to create a table
-                        # all the keys are scalar values, so we must start with an index. Tried to use something non-intrusive
-                        dataframe = pd.DataFrame(course_details, columns=["Name", "#", "Assignment", "Difficulty"], index=["course"])
-                        # this is for discord formatting, as otherwise the spacing is off after conversion. Ticks don't
-                        # look the best, but I'm not sure what else to use
-                        await message.channel.send('\```' + dataframe.to_string() + '')
-                        await message.channel.send(f'Due: {sheet.cell(rows, 4).value.strip()}')
-        # await message.channel.send(random.choice(encouragements))
+                    if await date_comparison(rows):
+                        if await date_limitation(rows):
+                            await convert_to_panda_tables(rows, message)
+
 
 load_dotenv()
 TOKEN = os.getenv('DISCORD_TOKEN')
 client.run(TOKEN)
-# client.run("OTI2NjU4NTM4NDcyODk4NjUw.Yc-4BA.z2nuqeDzh7TerQp0MNx6VZoIJ80")
+
 
