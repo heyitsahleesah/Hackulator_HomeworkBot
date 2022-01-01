@@ -51,17 +51,17 @@ async def delete_empty_rows(message):
 
 
 # check the date (based on the date comparison function) and delete the rows of the worksheet where the date has passed
-async def delete_past_homework(rows, message):
+async def delete_past_homework(message):
     """
     Iterates through the worksheet and deletes rows with dates that have passed.
 
     :return:
     """
     for row in sheet.rows:
-        if int(sheet.cell(rows, 4).value[1:3]) > int(printable_date[0:2]):
+        if int(sheet.cell(row, 4).value[1:3]) > int(printable_date[0:2]):
             sheet.delete_rows(row, 1)
-        elif int(sheet.cell(rows, 4).value[1:3]) == int(printable_date[0:2]) \
-                and int(sheet.cell(rows, 4).value[4:6]) > int(printable_date[3:5]):
+        elif int(sheet.cell(row, 4).value[1:3]) == int(printable_date[0:2]) \
+                and int(sheet.cell(row, 4).value[4:6]) > int(printable_date[3:5]):
             sheet.delete_rows(row, 1)
     await message.channel.send('Old homework deleted!')
 
@@ -150,7 +150,7 @@ async def on_message(message):
 
     elif message.content.lower() == 'cleanup':
         await delete_empty_rows(message)
-        await delete_past_homework(rows, message)
+        await delete_past_homework(message)
 
 load_dotenv()
 TOKEN = os.getenv('DISCORD_TOKEN')
