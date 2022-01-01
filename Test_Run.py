@@ -102,7 +102,8 @@ async def on_message(message):
                         # this is for discord formatting, as otherwise the spacing is off after conversion. Ticks don't
                         # look the best, but I'm not sure what else to use
                         await message.channel.send('\```' + dataframe.to_string() + '')
-        await message.channel.send(random.choice(encouragements))
+                        await message.channel.send(f'Due: {sheet.cell(rows, 4).value.strip()}')
+        # await message.channel.send(random.choice(encouragements))
 
 load_dotenv()
 TOKEN = os.getenv('DISCORD_TOKEN')
