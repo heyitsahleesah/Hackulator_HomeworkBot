@@ -4,6 +4,7 @@ import datetime
 import random
 import os
 from dotenv import load_dotenv
+import pandas as pd
 
 client = discord.Client()
 
@@ -85,12 +86,26 @@ async def on_message(message):
                     if int(sheet.cell(rows, 4).value[1:3]) > int(printable_date[0:2]) or \
                             int(sheet.cell(rows, 4).value[1:3]) == int(printable_date[0:2]) and \
                             int(sheet.cell(rows, 4).value[4:6]) > int(printable_date[3:5]):
-                        await message.channel.send(f"{sheet.cell(rows, 1).value} {sheet.cell(rows, 2).value} "
-                                                   f"{sheet.cell(rows, 3).value}  Difficulty: {sheet.cell(rows, 5).value}")
-                        await message.channel.send(f'Due: {sheet.cell(rows, 4).value.strip()}')
+                        # await message.channel.send(f"{sheet.cell(rows, 1).value} {sheet.cell(rows, 2).value} "
+                        #                            f"{sheet.cell(rows, 3).value}  Difficulty: {sheet.cell(rows, 5).value}")
+                        # await message.channel.send(f'Due: {sheet.cell(rows, 4).value.strip()}')
+                        # create dictionary of relevant values to use for dataframe
+                        course_details = ({
+                            "Name": [sheet.cell(rows, 1).value],
+                            "#": [sheet.cell(rows, 2).value],
+                            "Assignment": [sheet.cell(rows, 3).value],
+                            "Difficulty": [sheet.cell(rows, 5).value],
+                        })
+                        # initialize dataframe to use with pandas to create a table
+                        # all the keys are scalar values, so we must start with an index. Tried to use something non-intrusive
+                        dataframe = pd.DataFrame(course_details, columns=["Name", "#", "Assignment", "Difficulty"], index=["course"])
+                        # this is for discord formatting, as otherwise the spacing is off after conversion. Ticks don't
+                        # look the best, but I'm not sure what else to use
+                        await message.channel.send('\```' + dataframe.to_string() + '')
         await message.channel.send(random.choice(encouragements))
 
 load_dotenv()
 TOKEN = os.getenv('DISCORD_TOKEN')
 client.run(TOKEN)
 # client.run("OTI2NjU4NTM4NDcyODk4NjUw.Yc-4BA.z2nuqeDzh7TerQp0MNx6VZoIJ80")
+
