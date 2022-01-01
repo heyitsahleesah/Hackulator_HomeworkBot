@@ -34,6 +34,38 @@ async def on_ready():
     print('We have logged in as {0.user}'.format(client))
 
 
+# iterate through the worksheet on call and delete rows that are determined to be empty
+async def delete_empty_rows(message):
+    """
+    Iterates through the worksheet and deletes rows that have no values.
+
+    :return:
+    """
+    # # schedule cleanup
+    # cleanup_time = datetime.time(00, 00, 00)
+    # now = datetime.time.now()
+    for row in sheet.rows():
+        if all(cell.value for cell in row) is not True:
+            sheet.delete_rows(row[0].row, 1)
+    await message.channel.send('Empty rows deleted!')
+
+
+# check the date (based on the date comparison function) and delete the rows of the worksheet where the date has passed
+async def delete_past_homework(rows, message):
+    """
+    Iterates through the worksheet and deletes rows with dates that have passed.
+
+    :return:
+    """
+    for row in sheet.rows:
+        if int(sheet.cell(rows, 4).value[1:3]) > int(printable_date[0:2]):
+            sheet.delete_rows(row, 1)
+        elif int(sheet.cell(rows, 4).value[1:3]) == int(printable_date[0:2]) \
+                and int(sheet.cell(rows, 4).value[4:6]) > int(printable_date[3:5]):
+            sheet.delete_rows(row, 1)
+    await message.channel.send('Old homework deleted!')
+
+
 # Messageable.send has to be awaited while using discord
 # function has to be asynchronous to use await
 async def date_comparison(rows):
@@ -116,9 +148,10 @@ async def on_message(message):
                         if await date_limitation(rows):
                             await convert_to_panda_tables(rows, message)
 
+    elif message.content.lower() == 'cleanup':
+        await delete_empty_rows(message)
+        await delete_past_homework(rows, message)
 
 load_dotenv()
 TOKEN = os.getenv('DISCORD_TOKEN')
 client.run(TOKEN)
-
-
