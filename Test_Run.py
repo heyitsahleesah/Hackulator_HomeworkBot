@@ -5,6 +5,29 @@ import random
 import os
 from dotenv import load_dotenv
 import pandas as pd
+import gspread
+from oauth2client.service_account import ServiceAccountCredentials
+import json
+
+
+scopes = [
+    'https://www.googleapis.com/auth/spreadsheets',
+    'https://www.googleapis.com/auth/drive'
+]
+
+# accessing JSON
+credentials = ServiceAccountCredentials.from_json_keyfile_name("credentials.json", scopes)
+
+# authenticate JSON key with gspread
+file = gspread.authorize(credentials)
+
+sheet = file.open("GoogleDeadlinesBot")
+
+sheet = sheet.sheet1
+
+all_cells = sheet.range('A2:C6')
+for cell in all_cells:
+    print(cell.value)
 
 client = discord.Client()
 
@@ -15,17 +38,19 @@ encouragements = [
     "It will be easy",
 ]
 
+global rows
+
 # use builtin function to find the date on your own computer
 current_date = datetime.datetime.now()
 # convert the date to a readable format with only relevant information
 printable_date = current_date.strftime("%m-%d")
 
 # location of the excel file
-file = 'DiscordExcel.xlsx'
-
-# Open the workbook
-wb = openpyxl.load_workbook(file)
-sheet = wb.active
+# file = 'DiscordExcel.xlsx'
+#
+# # Open the workbook
+# wb = openpyxl.load_workbook(file)
+# sheet = wb.active
 
 
 @client.event
@@ -44,7 +69,7 @@ async def delete_empty_rows(message):
     # # schedule cleanup
     # cleanup_time = datetime.time(00, 00, 00)
     # now = datetime.time.now()
-    for row in sheet.rows():
+    for row in sheet.rows:
         if all(cell.value for cell in row) is not True:
             sheet.delete_rows(row[0].row, 1)
     await message.channel.send('Empty rows deleted!')
@@ -58,11 +83,13 @@ async def delete_past_homework(message):
     :return:
     """
     for row in sheet.rows:
-        if int(sheet.cell(row, 4).value[1:3]) > int(printable_date[0:2]):
-            sheet.delete_rows(row, 1)
-        elif int(sheet.cell(row, 4).value[1:3]) == int(printable_date[0:2]) \
-                and int(sheet.cell(row, 4).value[4:6]) > int(printable_date[3:5]):
-            sheet.delete_rows(row, 1)
+        # print(type(int(sheet.cell(row, 4).value[1:3])))
+        print(type(int(printable_date[0:2])))
+        # if int(sheet.cell(row, 4).value[1:3]) > int(printable_date[0:2]):
+        #     sheet.delete_rows(row, 1)
+        # elif int(sheet.cell(row, 4).value[1:3]) == int(printable_date[0:2]) \
+        #         and int(sheet.cell(row, 4).value[4:6]) > int(printable_date[3:5]):
+        #     sheet.delete_rows(row, 1)
     await message.channel.send('Old homework deleted!')
 
 
@@ -76,8 +103,8 @@ async def date_comparison(rows):
     """
     # iteration starts at 1 with openpyxl, we are comparing the same indices(month)
     # if due-month > current month or due-day > current-day given the same month
-    return int(sheet.cell(rows, 4).value[1:3]) > int(printable_date[0:2]) or int(sheet.cell(rows, 4).value[1:3]) \
-           == int(printable_date[0:2] and int(sheet.cell(rows, 4).value[4:6]) > int(printable_date[3:5]))
+    return int(sheet.cell(rows, 4).value[0:2]) > int(printable_date[0:2]) or int(sheet.cell(rows, 4).value[0:2]) \
+           == int(printable_date[0:2] and int(sheet.cell(rows, 4).value[3:5]) > int(printable_date[3:5]))
 
 
 async def date_limitation(rows):
@@ -87,8 +114,8 @@ async def date_limitation(rows):
     :return:
     """
     # the number after the <= comparitor is within how many days you want to inform the user of due dates
-    return (((int(sheet.cell(rows, 4).value[1:3]) - int(printable_date[0:2])) * 30) +
-            (int(sheet.cell(rows, 4).value[4:6]) - int(printable_date[3:5]))) <= 10
+    return (((int(sheet.cell(rows, 4).value[0:2]) - int(printable_date[0:2])) * 30) +
+            (int(sheet.cell(rows, 4).value[3:5]) - int(printable_date[3:5]))) <= 10
 
 
 async def convert_to_panda_tables(rows, message):
@@ -128,8 +155,8 @@ async def on_message(message):
     # if message.author == client.user:
     #     return
     if message.content.lower() == "deadlines" or message.content.lower() == "due".lower():
-        # await date_comparison(message)
-        for rows in range(2, sheet.max_row + 1):
+        # not sure how to detect maximum rows for now
+        for rows in range(2, 100):
             # just reading the date here
             for columns in range(4, 5):
                 if await date_comparison(rows):
@@ -140,17 +167,30 @@ async def on_message(message):
     # AttributeError: 'builtin_function_or_method' object has no attribute 'lower'
     # second part of conditional checks for a specific course
     elif message.content.startswith("deadlines") and len(message.content) == 14:
-        for rows in range(2, sheet.max_row + 1):
+        for rows in range(2, 100):
             for columns in range(2, 3):
-                cell_value = sheet.cell(row=rows, column=columns)
+                cell_value = sheet.cell(rows, columns)
                 if str(cell_value.value) == (message.content[10:]):
                     if await date_comparison(rows):
                         if await date_limitation(rows):
                             await convert_to_panda_tables(rows, message)
 
-    elif message.content.lower() == 'cleanup':
-        await delete_empty_rows(message)
-        await delete_past_homework(message)
+    if message.content.startswith("add assignment"):
+        rows = 9
+        message.content = message.content.split()
+        sheet.update_cell(rows, 1, message.content[2])
+        sheet.update_cell(rows, 2, message.content[3])
+        sheet.update_cell(rows, 3, message.content[4])
+        sheet.update_cell(rows, 4, message.content[5])
+        sheet.update_cell(rows, 5, message.content[6])
+        rows += 1
+        await message.channel.send("Succesfully added assignment")
+        print(rows)
+        # wb.save(file)
+
+    # elif message.content.lower() == 'cleanup':
+    #     await delete_empty_rows(message)
+    #     await delete_past_homework(message)
 
 load_dotenv()
 TOKEN = os.getenv('DISCORD_TOKEN')
