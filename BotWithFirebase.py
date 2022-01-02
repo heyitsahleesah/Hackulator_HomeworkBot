@@ -20,7 +20,7 @@ async def on_ready():
             text_channel_list.append(channel)
     print(text_channel_list)
     # Send a starting message, when the bot is loaded / restarted
-    welcome_message = "To get started, type:  help"
+    welcome_message = "To get started, type:  $help"
     print('We have logged in as {0.user}'.format(client))
     channel = client.get_channel(926969232518959107)  # the selected channel ID goes in here
     await channel.send(welcome_message)  # send a message to the selected channel
